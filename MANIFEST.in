@@ -1,0 +1,4 @@
+include README.md
+include-recursive tsunami/static *
+include-recursive tsunami/templates *
+prune tests*
