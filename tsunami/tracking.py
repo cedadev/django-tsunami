@@ -1,7 +1,9 @@
 import threading
+import json
 
 from django.apps import apps
 from django.db.models.signals import post_save, m2m_changed, post_delete
+from django.core.serializers import serialize
 
 from .models import Event
 from .settings import app_settings
@@ -20,6 +22,16 @@ def _event_type(model, change_type):
     return model._meta.label_lower + '.' + change_type
 
 
+def _instance_as_dict(instance):
+    """
+    Returns the instance as a dictionary.
+    """
+    # In order to get everything in the correct format, we serialize to JSON
+    # and then convert back
+    data = serialize('json', (instance, ), use_natural_foreign_keys = True)
+    return json.loads(data)[0]['fields']
+
+
 def post_save_receiver(sender, instance, created, **kwargs):
     """
     Handles the post_save signal for tracked models.
@@ -28,7 +40,8 @@ def post_save_receiver(sender, instance, created, **kwargs):
     if app_settings.IS_TRACKED_PREDICATE(sender):
         Event.objects.create(
             event_type = _event_type(sender, 'created' if created else 'updated'),
-            target = instance
+            target = instance,
+            data = _instance_as_dict(instance)
         )
 
 
@@ -41,7 +54,8 @@ def m2m_changed_receiver(sender, instance, action, reverse, **kwargs):
         if action.startswith("post_") and not reverse:
             Event.objects.create(
                 event_type = _event_type(sender, 'updated'),
-                target = instance
+                target = instance,
+                data = _instance_as_dict(instance)
             )
 
 
