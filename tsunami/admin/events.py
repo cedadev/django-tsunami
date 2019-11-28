@@ -7,22 +7,23 @@ from django.urls.exceptions import NoReverseMatch
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from django.utils.encoding import force_text
 
 from django_admin_listfilter_dropdown.filters import DropdownFilter, RelatedOnlyDropdownFilter
 
 from rangefilter.filter import DateRangeFilter
 
-from .models import Event, EventAggregate
+from ..models import Event, EventAggregate
 
 
-def _make_link(obj_or_ctype, obj_id = None):
+def _make_link(obj_or_ctype, obj_id = None, link_text = None):
     if obj_id is None:
         ctype = ContentType.objects.get_for_model(obj_or_ctype)
         obj_id = obj_or_ctype.pk
-        link_text = str(obj_or_ctype)
+        link_text = link_text or str(obj_or_ctype)
     else:
         ctype = obj_or_ctype
-        link_text = obj_id
+        link_text = link_text or obj_id
     try:
         return format_html(
             '<a href="{}">{}</a>',
@@ -55,6 +56,8 @@ class GfkContentTypeFilter(RelatedOnlyDropdownFilter):
         )
 
     def choices(self, changelist):
+        # We override choices in order to remove the id parameter from the query string
+        # if the content type changes
         yield {
             'selected': self.lookup_val is None and not self.lookup_val_isnull,
             'query_string': changelist.get_query_string(
@@ -63,7 +66,6 @@ class GfkContentTypeFilter(RelatedOnlyDropdownFilter):
             'display': 'All',
         }
         for pk_val, val in self.lookup_choices:
-            # If the content type will change when the link is clicked, remove the id parameter
             if self.lookup_val == str(pk_val):
                 to_remove = [self.lookup_kwarg_isnull]
             else:
@@ -165,7 +167,7 @@ class TargetIdFilter(GfkIdFilter):
 class EventAggregateInline(admin.TabularInline):
     model = EventAggregate
 
-    readonly_fields = ('aggregate_ctype_formatted', 'aggregate_id_link')
+    readonly_fields = ('aggregate_ctype_formatted', 'aggregate_link')
     exclude = ('aggregate_ctype', 'aggregate_id')
 
     def aggregate_ctype_formatted(self, obj):
@@ -177,9 +179,15 @@ class EventAggregateInline(admin.TabularInline):
         )
     aggregate_ctype_formatted.short_description = 'aggregate ctype'
 
-    def aggregate_id_link(self, obj):
-        return _make_link(obj.aggregate_ctype, obj.aggregate_id)
-    aggregate_id_link.short_description = 'aggregate id'
+    def aggregate_link(self, obj):
+        # Try to resolve the object at the other end of the GFK
+        # If it fails, just render the id
+        if obj.aggregate:
+            link_text = force_text(obj.aggregate)
+        else:
+            link_text = obj.aggregate_id
+        return _make_link(obj.aggregate_ctype, obj.aggregate_id, link_text)
+    aggregate_link.short_description = 'aggregate'
 
     # Disallow all edit permissions
     def has_add_permission(self, request):
@@ -198,7 +206,7 @@ class EventAdmin(admin.ModelAdmin):
         'short_id',
         'event_type_formatted',
         'target_ctype_formatted',
-        'target_id_link',
+        'target_link',
         'num_aggregates',
         'user_link',
         'created_at'
@@ -218,7 +226,7 @@ class EventAdmin(admin.ModelAdmin):
         'id',
         'event_type_formatted',
         'target_ctype_formatted',
-        'target_id_link',
+        'target_link',
         'data_formatted',
         'user_link',
         'created_at'
@@ -245,9 +253,15 @@ class EventAdmin(admin.ModelAdmin):
         )
     target_ctype_formatted.short_description = 'target ctype'
 
-    def target_id_link(self, obj):
-        return _make_link(obj.target_ctype, obj.target_id)
-    target_id_link.short_description = 'target id'
+    def target_link(self, obj):
+        # Try to resolve the object at the other end of the GFK
+        # If it fails, just render the id
+        if obj.target:
+            link_text = force_text(obj.target)
+        else:
+            link_text = obj.target_id
+        return _make_link(obj.target_ctype, obj.target_id, link_text)
+    target_link.short_description = 'target'
 
     def num_aggregates(self, obj):
         return obj.num_aggregates
