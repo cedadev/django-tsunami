@@ -4,6 +4,7 @@ from django.db import models
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.conf import settings
+from django.core.validators import RegexValidator
 
 from jsonfallback.fields import FallbackJSONField
 
@@ -22,7 +23,7 @@ class Event(models.Model):
     """
     class Meta:
         index_together = (
-            # Make an index for the generic target
+            # Make an index for the generic fk
             ('target_ctype', 'target_id'),
         )
         ordering = ('-created_at', )
@@ -30,7 +31,10 @@ class Event(models.Model):
     # Use a UUID for the primary key
     id = models.UUIDField(primary_key = True, editable = False, default = uuid.uuid4)
     # Event type is a free field - apps should know how to display their own events when required
-    event_type = models.SlugField()
+    event_type = models.CharField(
+        max_length = 250,
+        validators = (RegexValidator('^[a-zA-Z0-9.-_@\\/]+'), )
+    )
     # Every event has a target, which is a generic foreign key
     target_ctype = models.ForeignKey(ContentType, models.CASCADE)
     # This should be big enough to hold a UUID
@@ -47,3 +51,37 @@ class Event(models.Model):
     )
     # All events record a created time
     created_at = models.DateTimeField(auto_now_add = True)
+
+    @property
+    def short_id(self):
+        return str(self.id)[:8]
+
+
+class EventAggregate(models.Model):
+    """
+    Model representing the relationship of an event to an aggregate.
+
+    An event may be related to several aggregates.
+    """
+    class Meta:
+        index_together = (
+            # Make an index for the generic fk
+            ('aggregate_ctype', 'aggregate_id'),
+        )
+        ordering = (
+            'aggregate_ctype__app_label',
+            'aggregate_ctype__model',
+            'aggregate_id'
+        )
+
+    event = models.ForeignKey(
+        Event,
+        models.CASCADE,
+        related_name = 'aggregates',
+        related_query_name = 'aggregate'
+    )
+    # The aggregate is a generic foreign key
+    aggregate_ctype = models.ForeignKey(ContentType, models.CASCADE)
+    # This should be big enough to hold a UUID
+    aggregate_id = models.CharField(max_length = 40)
+    aggregate = GenericForeignKey('aggregate_ctype', 'aggregate_id')

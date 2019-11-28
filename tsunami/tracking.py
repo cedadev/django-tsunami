@@ -53,7 +53,7 @@ def m2m_changed_receiver(sender, instance, action, reverse, **kwargs):
         # Only process the forward side of the relation
         if action.startswith("post_") and not reverse:
             Event.objects.create(
-                event_type = _event_type(sender, 'updated'),
+                event_type = _event_type(type(instance), 'updated'),
                 target = instance,
                 data = _instance_as_dict(instance)
             )
@@ -74,7 +74,7 @@ def _dispatch_uid(receiver):
     """
     Returns the dispatch_uid for the given receiver.
     """
-    return receiver.__module__ + '.' + receiver.__qualname__
+    return '{}.{}'.format(receiver.__module__, receiver.__qualname__)
 
 
 def enable():
