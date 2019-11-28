@@ -39,13 +39,15 @@ def _event_type(model, change_type):
     return '{}.{}'.format(model._meta.label_lower, change_type)
 
 
-def _instance_as_dict(instance):
+def _instance_as_dict(instance, fields = None):
     """
     Returns the instance as a dictionary.
     """
-    # In order to get everything in the correct format, we serialize to JSON
-    # and then convert back
-    data = serialize('json', (instance, ), use_natural_foreign_keys = True)
+    # By default, use all fields except M2M as they are a performance hog
+    if fields is None:
+        fields = tuple(f.name for f in instance._meta.get_fields() if f.concrete and not f.many_to_many)
+    # In order to get everything in the correct format, we serialize to JSON and then convert back
+    data = serialize('json', (instance, ), fields = fields)
     return json.loads(data)[0]['fields']
 
 
@@ -102,16 +104,26 @@ def m2m_changed_receiver(sender, instance, action, reverse, **kwargs):
     """
     Handles the m2m_changed signal for tracked models.
     """
-    if not state.suspended and app_settings.IS_TRACKED_PREDICATE(sender):
-        # Only process the forward side of the relation
-        if action.startswith("post_") and not reverse:
-            # Only produce an event if the diff is non-empty
-            diff = _instance_diff(instance)
-            if diff:
+    # Only process the forward side of the relation
+    if action.startswith("post_") and not reverse:
+        # Use the instance type instead of the sender to determine if we should track
+        model = type(instance)
+        if not state.suspended and app_settings.IS_TRACKED_PREDICATE(model):
+            # Find the field for which sender is the through model
+            field = next(
+                iter(
+                    f.name
+                    for f in model._meta.get_fields()
+                    if f.many_to_many and f.remote_field.through == sender
+                ),
+                None
+            )
+            if field:
                 Event.objects.create(
-                    event_type = _event_type(type(instance), 'updated'),
+                    event_type = _event_type(model, 'm2m_changed'),
                     target = instance,
-                    data = diff
+                    # The data is the serialized value of the single m2m field
+                    data = _instance_as_dict(instance, fields = (field, ))
                 )
 
 

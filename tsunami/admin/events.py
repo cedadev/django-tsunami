@@ -16,14 +16,14 @@ from rangefilter.filter import DateRangeFilter
 from ..models import Event, EventAggregate
 
 
-def _make_link(obj_or_ctype, obj_id = None, link_text = None):
+def _make_link(obj_or_ctype, obj_id = None):
     if obj_id is None:
         ctype = ContentType.objects.get_for_model(obj_or_ctype)
         obj_id = obj_or_ctype.pk
-        link_text = link_text or str(obj_or_ctype)
+        link_text = str(obj_or_ctype)
     else:
         ctype = obj_or_ctype
-        link_text = link_text or obj_id
+        link_text = obj_id
     try:
         return format_html(
             '<a href="{}">{}</a>',
@@ -180,13 +180,7 @@ class EventAggregateInline(admin.TabularInline):
     aggregate_ctype_formatted.short_description = 'aggregate ctype'
 
     def aggregate_link(self, obj):
-        # Try to resolve the object at the other end of the GFK
-        # If it fails, just render the id
-        if obj.aggregate:
-            link_text = force_text(obj.aggregate)
-        else:
-            link_text = obj.aggregate_id
-        return _make_link(obj.aggregate_ctype, obj.aggregate_id, link_text)
+        return _make_link(obj.aggregate_ctype, obj.aggregate_id)
     aggregate_link.short_description = 'aggregate'
 
     # Disallow all edit permissions
@@ -211,6 +205,7 @@ class EventAdmin(admin.ModelAdmin):
         'user_link',
         'created_at'
     )
+    list_select_related = ('target_ctype', 'user')
     list_filter = (
         ('aggregate__aggregate_ctype', AggregateContentTypeFilter),
         AggregateIdFilter,
@@ -254,13 +249,7 @@ class EventAdmin(admin.ModelAdmin):
     target_ctype_formatted.short_description = 'target ctype'
 
     def target_link(self, obj):
-        # Try to resolve the object at the other end of the GFK
-        # If it fails, just render the id
-        if obj.target:
-            link_text = force_text(obj.target)
-        else:
-            link_text = obj.target_id
-        return _make_link(obj.target_ctype, obj.target_id, link_text)
+        return _make_link(obj.target_ctype, obj.target_id)
     target_link.short_description = 'target'
 
     def num_aggregates(self, obj):
