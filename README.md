@@ -1,1 +1,1 @@
-# tsunami
+# django-tsunami
