@@ -9,7 +9,11 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.utils.encoding import force_text
 
-from django_admin_listfilter_dropdown.filters import DropdownFilter, RelatedOnlyDropdownFilter
+from django_admin_listfilter_dropdown.filters import (
+    DropdownFilter,
+    RelatedDropdownFilter,
+    RelatedOnlyDropdownFilter
+)
 
 from rangefilter.filter import DateRangeFilter
 
@@ -37,22 +41,16 @@ def _make_link(obj_or_ctype, obj_id = None):
         return str(link_text)
 
 
-class GfkContentTypeFilter(RelatedOnlyDropdownFilter):
+class GfkContentTypeFilter(RelatedDropdownFilter):
     """
     Related filter for the content type of a GFK that includes the app label.
 
     It will remove the configured id parameter when the content type changes.
     """
     def field_choices(self, field, request, model_admin):
-        # Restrict the choices to the content types that actually have an object
-        pk_qs = (model_admin
-            .get_queryset(request)
-            .distinct()
-            .values_list('{}__pk'.format(self.field_path), flat = True)
-        )
         return tuple(
             (ct.pk, '{}.{}'.format(ct.app_label, ct.model))
-            for ct in ContentType.objects.filter(pk__in = pk_qs)
+            for ct in ContentType.objects.all()
         )
 
     def choices(self, changelist):
@@ -125,19 +123,6 @@ class GfkIdFilter(admin.SimpleListFilter):
             (obj.pk, str(obj))
             for obj in self.content_type.model_class().objects.all()
         )
-
-    def value(self):
-        # If there is no content type, we can't have a valid value
-        if not self.content_type:
-            return None
-        # If the current value does not represent a valid object for the content type, return None
-        obj_id = super().value()
-        try:
-            _ = self.content_type.model_class().objects.get(pk = obj_id)
-        except ObjectDoesNotExist:
-            return None
-        else:
-            return obj_id
 
     def queryset(self, request, queryset):
         if self.value():

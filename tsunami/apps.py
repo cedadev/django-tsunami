@@ -11,9 +11,6 @@ class TsunamiAppConfig(AppConfig):
         # When the app is ready, enable tracking
         from . import tracking
         tracking.enable()
-        # Also enable the creation of event aggregates
-        from . import aggregates
-        aggregates.connect_signals()
 
 
 # Patch the ModelAdmin history_view to point to the events for an object

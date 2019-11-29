@@ -1,6 +1,6 @@
 import uuid
 
-from django.db import models
+from django.db import models, router, transaction
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.conf import settings
@@ -15,6 +15,26 @@ def _default_user():
     """
     from . import tracking
     return tracking.state.user
+
+
+def _find_aggregates(instance):
+    """
+    Finds all the aggregates for the given instance.
+
+    By default, the instance itself is the only aggregate, but models can
+    define a ``get_event_aggregates`` method that returns an iterable
+    of aggregates.
+
+    This is a recursive operation - the aggregates of an instance's aggregates
+    are also aggregates of the instance.
+    """
+    # The instance itself is always an aggregate
+    aggregates = set([instance])
+    # If the instance defines a get_event_aggregates method, use it
+    if hasattr(instance, 'get_event_aggregates'):
+        for aggregate in instance.get_event_aggregates():
+            aggregates.update(_find_aggregates(aggregate))
+    return aggregates
 
 
 class Event(models.Model):
@@ -55,6 +75,20 @@ class Event(models.Model):
     @property
     def short_id(self):
         return str(self.id)[:8]
+
+    def save(self, force_insert = False,
+                   force_update = False,
+                   using = None,
+                   update_fields = None):
+        # Save the event and the aggregates in the same transaction
+        # Assume the event and event aggregates are saved in the same db
+        using = using or router.db_for_write(self.__class__, instance = self)
+        with transaction.atomic(using = using):
+            super().save(force_insert, force_update, using, update_fields)
+            EventAggregate.objects.bulk_create([
+                EventAggregate(event = self, aggregate = aggregate)
+                for aggregate in _find_aggregates(self.target)
+            ])
 
 
 class EventAggregate(models.Model):

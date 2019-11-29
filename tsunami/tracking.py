@@ -43,9 +43,15 @@ def _instance_as_dict(instance, fields = None):
     """
     Returns the instance as a dictionary.
     """
-    # By default, use all fields except M2M as they are a performance hog
+    # By default, use all fields except M2M as they require extra queries
+    # This function is run for every tracked instance that is loaded from the DB, so extra
+    # queries are not good for performance!
     if fields is None:
-        fields = tuple(f.name for f in instance._meta.get_fields() if f.concrete and not f.many_to_many)
+        fields = tuple(
+            f.name
+            for f in instance._meta.get_fields()
+            if f.concrete and not f.many_to_many
+        )
     # In order to get everything in the correct format, we serialize to JSON and then convert back
     data = serialize('json', (instance, ), fields = fields)
     return json.loads(data)[0]['fields']
@@ -74,68 +80,81 @@ def post_init_receiver(sender, instance, **kwargs):
     """
     Handles the post_init signal for tracked models.
     """
+    if not app_settings.IS_TRACKED_PREDICATE(sender):
+        return
     # If the instance is loaded from the DB, store the initial serialized state
     # This will allow us to diff with the current state when we create an event
-    if app_settings.IS_TRACKED_PREDICATE(sender):
+    try:
         # Try to serialize the instance - this will fail for new instances
-        try:
-            instance._tsunami_state = _instance_as_dict(instance)
-        except ValueError:
-            pass
+        instance._tsunami_state = _instance_as_dict(instance)
+    except ValueError:
+        pass
 
 
 def post_save_receiver(sender, instance, created, **kwargs):
     """
-    Handles the post_save signal for tracked models.
+    Handles the post_save signal by saving a create or update event for tracked instances.
     """
-    # This receiver creates a create or update event for the instance
-    if not state.suspended and app_settings.IS_TRACKED_PREDICATE(sender):
-        # Only produce an event if the diff is non-empty
-        diff = _instance_diff(instance, created)
-        if diff:
-            Event.objects.create(
-                event_type = _event_type(sender, 'created' if created else 'updated'),
-                target = instance,
-                data = diff
-            )
+    if state.suspended:
+        return
+    if not app_settings.IS_TRACKED_PREDICATE(sender):
+        return
+    # Only produce an event if the diff is non-empty
+    diff = _instance_diff(instance, created)
+    if diff:
+        Event.objects.create(
+            event_type = _event_type(sender, 'created' if created else 'updated'),
+            target = instance,
+            data = diff
+        )
 
 
 def m2m_changed_receiver(sender, instance, action, reverse, **kwargs):
     """
-    Handles the m2m_changed signal for tracked models.
+    Handles the m2m_changed signal by saving a m2m_changed event for tracked instances.
     """
+    if state.suspended:
+        return
+    # Only process post-change events
+    if not action.startswith("post_"):
+        return
     # Only process the forward side of the relation
-    if action.startswith("post_") and not reverse:
-        # Use the instance type instead of the sender to determine if we should track
-        model = type(instance)
-        if not state.suspended and app_settings.IS_TRACKED_PREDICATE(model):
-            # Find the field for which sender is the through model
-            field = next(
-                iter(
-                    f.name
-                    for f in model._meta.get_fields()
-                    if f.many_to_many and f.remote_field.through == sender
-                ),
-                None
-            )
-            if field:
-                Event.objects.create(
-                    event_type = _event_type(model, 'm2m_changed'),
-                    target = instance,
-                    # The data is the serialized value of the single m2m field
-                    data = _instance_as_dict(instance, fields = (field, ))
-                )
+    if reverse:
+        return
+    # Use the instance type instead of the sender to determine if we should track
+    model = instance.__class__
+    if not app_settings.IS_TRACKED_PREDICATE(model):
+        return
+    # Find the field for which sender is the through model
+    field = next(
+        iter(
+            f.name
+            for f in model._meta.get_fields()
+            if f.many_to_many and f.remote_field.through == sender
+        ),
+        None
+    )
+    if field:
+        Event.objects.create(
+            event_type = _event_type(model, 'm2m_changed'),
+            target = instance,
+            # The data is the serialized value of the single m2m field
+            data = _instance_as_dict(instance, fields = (field, ))
+        )
 
 
 def post_delete_receiver(sender, instance, **kwargs):
     """
-    Handles the post_delete signal for tracked models.
+    Handles the post_delete signal by saving a deleted event for tracked instances.
     """
-    if not state.suspended and app_settings.IS_TRACKED_PREDICATE(sender):
-        Event.objects.create(
-            event_type = _event_type(sender, 'deleted'),
-            target = instance
-        )
+    if state.suspended:
+        return
+    if not app_settings.IS_TRACKED_PREDICATE(sender):
+        return
+    Event.objects.create(
+        event_type = _event_type(sender, 'deleted'),
+        target = instance
+    )
 
 
 def _dispatch_uid(receiver):
