@@ -17,7 +17,7 @@ from django_admin_listfilter_dropdown.filters import (
 
 from rangefilter.filter import DateRangeFilter
 
-from ..models import Event, EventAggregate
+from .models import Event, EventAggregate
 
 
 def _make_link(obj_or_ctype, obj_id = None):
@@ -235,7 +235,7 @@ class EventAdmin(admin.ModelAdmin):
 
     def target_link(self, obj):
         return _make_link(obj.target_ctype, obj.target_id)
-    target_link.short_description = 'target'
+    target_link.short_description = 'target id'
 
     def num_aggregates(self, obj):
         return obj.num_aggregates
