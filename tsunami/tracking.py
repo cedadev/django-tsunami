@@ -127,7 +127,7 @@ def m2m_changed_receiver(sender, instance, action, reverse, **kwargs):
         return
     # Find the field for which sender is the through model
     field = next(
-        iter(
+        (
             f.name
             for f in model._meta.get_fields()
             if f.many_to_many and f.remote_field.through == sender

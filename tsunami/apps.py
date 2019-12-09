@@ -18,7 +18,7 @@ from django.contrib.admin import ModelAdmin
 from django.contrib.admin.utils import unquote
 from django.shortcuts import redirect
 from django.urls import reverse
-from urllib.parse import urlencode
+from django.utils.http import urlencode
 def history_redirect(model_admin, request, object_id, extra_context = None):
     # First, find the object that the history is for
     model = model_admin.model
