@@ -169,7 +169,7 @@ class EventAggregateInline(admin.TabularInline):
     aggregate_link.short_description = 'aggregate'
 
     # Disallow all edit permissions
-    def has_add_permission(self, request):
+    def has_add_permission(self, request, obj):
         return False
 
     def has_change_permission(self, request, obj = None):
