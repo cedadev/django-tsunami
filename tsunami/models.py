@@ -39,7 +39,7 @@ def _find_aggregates(instance):
 
 class Event(models.Model):
     """
-    Model representing an event that has been produced by an action.
+    Model representing an event that has been produced by a change to a model.
     """
     class Meta:
         index_together = (
@@ -53,7 +53,7 @@ class Event(models.Model):
     # Event type is a free field - apps should know how to display their own events when required
     event_type = models.CharField(
         max_length = 250,
-        validators = (RegexValidator('^[a-zA-Z0-9.-_@\\/]+'), )
+        validators = (RegexValidator('^[a-zA-Z0-9.-_@\\/]+$'), )
     )
     # Every event has a target, which is a generic foreign key
     target_ctype = models.ForeignKey(ContentType, models.CASCADE)

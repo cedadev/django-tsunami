@@ -17,5 +17,8 @@ def user_tracking(get_response):
         else:
             tracking.state.user = None
         # We can defer to the next middleware now
-        return get_response(request)
+        response = get_response(request)
+        # Reset the tracking user
+        tracking.state.user = None
+        return response
     return middleware
