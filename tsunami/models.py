@@ -6,7 +6,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.conf import settings
 from django.core.validators import RegexValidator
 
-from jsonfallback.fields import FallbackJSONField
+from jsonfield import JSONField
 
 
 def _default_user():
@@ -61,7 +61,7 @@ class Event(models.Model):
     target_id = models.CharField(max_length = 40)
     target = GenericForeignKey('target_ctype', 'target_id')
     # Event data is stored as a JSON blob
-    data = FallbackJSONField(default = dict)
+    data = JSONField(default = dict)
     # Events can optionally have an associated user
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

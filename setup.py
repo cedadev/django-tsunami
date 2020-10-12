@@ -34,7 +34,6 @@ if __name__ == "__main__":
             'django-admin-list-filter-dropdown',
             'django-admin-rangefilter',
             'django-settings-object',
-            'psycopg2-binary', # See https://github.com/raphaelm/django-jsonfallback/issues/1
-            'django-jsonfallback',
+            'jsonfield',
         ],
     )
