@@ -19,6 +19,7 @@ from django.contrib.admin.utils import unquote
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.http import urlencode
+from django.core.exceptions import PermissionDenied
 def history_redirect(model_admin, request, object_id, extra_context = None):
     # First, find the object that the history is for
     model = model_admin.model

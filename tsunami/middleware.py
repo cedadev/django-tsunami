@@ -1,7 +1,3 @@
-"""
-Django middlewares for the tsunami app.
-"""
-
 from . import tracking
 
 
