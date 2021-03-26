@@ -164,7 +164,9 @@ def post_delete_receiver(sender, instance, **kwargs):
         return
     Event.objects.create(
         event_type = '{}.deleted'.format(sender._meta.label_lower),
-        target = instance
+        target = instance,
+        # When deleted, put the last known state in the event data
+        data = _instance_as_dict(instance)
     )
 
 
