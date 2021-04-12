@@ -7,6 +7,9 @@ class TsunamiAppConfig(AppConfig):
     """
     name = 'tsunami'
 
+    # By default, use bigints for the id field of Tsunami models
+    default_auto_field = 'django.db.models.BigAutoField'
+
     def ready(self):
         # When the app is ready, enable tracking
         from . import tracking
