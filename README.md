@@ -33,7 +33,10 @@ MIDDLEWARE = [
 Tsunami can be used, and be useful, with zero changes to your application code. Unless
 events are explicitly suspended or a model is excluded using the settings, an event will
 be created automatically for any change made to a model instance. These automatic events
-contain the diff with the previous model state as the event data.
+have an `event_type` of the form `{app label}.{model name}.{created|updated|deleted}` and
+have the diff with the previous model state as the event data. For example, a change
+to the email address of a standard user would produce an event with `auth.user.updated`
+as the event type and `{ "email": "<new email>" }` as the data.
 
 Tsunami includes a
 [ModelAdmin](https://docs.djangoproject.com/en/3.2/ref/contrib/admin/#modeladmin-objects)
@@ -51,6 +54,57 @@ made via the admin, with a redirect to a pre-filtered list of events for the obj
 
 Applications are also free to create their own events, and can associate whatever data
 is appropriate with those events.
+
+### Listening to events
+
+Events can be listened for and reacted to be simply connecting to the standard
+[post_save signal](https://docs.djangoproject.com/en/3.2/ref/signals/#post-save) for the
+`Event` model.
+
+However Tsunami provides a couple of decorators to simplify the process of listening to
+events with specific event types. These are just wrappers around the `post_save` signal
+for the `Event` model:
+
+<dl>
+    <dt><code>event_listener(*event_types, **kwargs)</code></dt>
+    <dd>
+        <p>Register the decorated function as a listener for events of the specified event types.</p>
+        <p>Any <code>kwargs</code> are passed when connecting the signal.</p>
+    </dd>
+    <dt><code>model_event_listener(model, event_types, **kwargs)</code></dt>
+    <dd>
+        <p>
+            Shorthand for <code>event_listener</code> where the event types are prepended with
+            the model label.
+        </p>
+        <p>
+            Used to avoid hard-coding the model label. This is especially useful when dealing
+            with swappable models such as <code>settings.AUTH_USER_MODEL</code>, as the
+            model label is not known until runtime.
+        </p>
+    </dd>
+</dl>
+
+For example, the following usage of `event_listener` and `model_event_listener` are equivalent
+in the case where `django.contrib.auth.models.User` is used. However the `model_event_listener`
+variant would continue to work if another user model was swapped in:
+
+```python
+from django.contrib.auth import get_user_model
+
+from tsunami.helpers import event_listener, model_event_listener
+
+
+@event_listener('auth.user.created', 'auth.user.updated')
+def using_event_listener(event):
+    # ... do something with the event ...
+
+
+@model_event_listener(get_user_model(), ['created', 'updated'])
+def using_model_event_listener(event):
+    # ... do something with the event ...
+```
+
 
 ## Concepts
 
