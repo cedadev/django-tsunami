@@ -28,6 +28,18 @@ MIDDLEWARE = [
 ]
 ```
 
+### Database transactions and events
+
+In order to ensure that the events are consistent with the model state, it is recommended
+that you somehow ensure that all database changes are made within a
+[transaction](https://docs.djangoproject.com/en/stable/topics/db/transactions/). Doing this
+ensures that a change to a model and the corresponding event are either saved together
+or not at all.
+
+There are several ways to do this, but the simplest is to use the
+`ATOMIC_REQUESTS` database setting to
+[tie database transactions to HTTP requests](https://docs.djangoproject.com/en/3.2/topics/db/transactions/#tying-transactions-to-http-requests).
+
 ## Usage
 
 Tsunami can be used, and be useful, with zero changes to your application code. Unless
