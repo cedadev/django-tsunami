@@ -38,7 +38,16 @@ or not at all.
 
 There are several ways to do this, but the simplest is to use the
 `ATOMIC_REQUESTS` database setting to
-[tie database transactions to HTTP requests](https://docs.djangoproject.com/en/3.2/topics/db/transactions/#tying-transactions-to-http-requests).
+[tie database transactions to HTTP requests](https://docs.djangoproject.com/en/3.2/topics/db/transactions/#tying-transactions-to-http-requests):
+
+```python
+DATABASES = {
+    'default': {
+        # ... other database settings ...
+        'ATOMIC_REQUESTS': True,
+    },
+}
+```
 
 ## Usage
 
