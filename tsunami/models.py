@@ -42,10 +42,10 @@ class Event(models.Model):
     Model representing an event that has been produced by a change to a model.
     """
     class Meta:
-        index_together = (
+        indexes = [
             # Make an index for the generic fk
-            ('target_ctype', 'target_id'),
-        )
+            models.Index(fields=['target_ctype', 'target_id']),
+        ]
         ordering = ('-created_at', )
 
     # Use a UUID for the primary key
@@ -98,10 +98,10 @@ class EventAggregate(models.Model):
     An event may be related to several aggregates.
     """
     class Meta:
-        index_together = (
+        indexes = [
             # Make an index for the generic fk
-            ('aggregate_ctype', 'aggregate_id'),
-        )
+            models.Index(fields=['aggregate_ctype', 'aggregate_id']),
+        ]
         ordering = (
             'aggregate_ctype__app_label',
             'aggregate_ctype__model',

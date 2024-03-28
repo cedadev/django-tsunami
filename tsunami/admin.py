@@ -14,7 +14,7 @@ from django_admin_listfilter_dropdown.filters import (
     RelatedOnlyDropdownFilter
 )
 
-from rangefilter.filter import DateRangeFilter
+from rangefilter.filters import DateRangeFilter
 
 from .models import Event, EventAggregate
 
