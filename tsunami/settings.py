@@ -60,5 +60,8 @@ class TsunamiSettings(SettingsObject):
     #: The default uses the black/whitelists, but can be overridden
     IS_TRACKED_PREDICATE = Setting(default = default_is_tracked)
 
+    # Attribute we are adding to instances to mute them
+    MUTE_SIGNALS_ATTR = "_mute_signals"
+
 
 app_settings = TsunamiSettings('TSUNAMI')

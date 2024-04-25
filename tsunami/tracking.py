@@ -1,6 +1,7 @@
 import threading
 import json
 import contextlib
+import functools
 
 from django.apps import apps
 from django.db.models.signals import post_init, post_save, m2m_changed, post_delete
@@ -19,7 +20,7 @@ class _State(threading.local):
 
 state = _State()
 
-
+# I'm not sure this is used anywhere and doesn't seem to work so maybe we remove?
 @contextlib.contextmanager
 def suspend():
     """
@@ -30,6 +31,35 @@ def suspend():
         yield
     finally:
         state.suspended = False
+
+
+def mutable_signal_receiver(func):
+    """
+    Decorator for signals to allow them to be skipped by setting the attr MUTE_SIGNALS_ATTR on an instance.
+    """
+    @functools.wraps(func)
+    def wrapper(sender, instance, signal, **kwargs):
+        mute_signals = getattr(instance, app_settings.MUTE_SIGNALS_ATTR, False)
+        if mute_signals is True:
+            pass # Skip all signals
+        elif isinstance(mute_signals, list) and signal in mute_signals:
+            pass # Skip user requested signal
+        else:
+            return func(sender=sender, instance=instance, signal=signal, **kwargs) # Allow signal receiver
+    return wrapper
+        
+
+@contextlib.contextmanager
+def mute_signals_for(instance, sigs):
+    """
+    Context manager to skip signals for @instance (django model).
+
+    @sigs can be True to skip all signals or list of specified signals like [post_delete, post_save]
+    """
+    try:
+        yield setattr(instance, app_settings.MUTE_SIGNALS_ATTR, sigs)
+    finally:
+        setattr(instance, app_settings.MUTE_SIGNALS_ATTR, False)
 
 
 def _event_type(instance, diff, default):
@@ -60,8 +90,10 @@ def _instance_as_dict(instance, fields = None):
             for f in instance._meta.get_fields()
             if f.concrete and not f.many_to_many
         )
-    # In order to get everything in the correct format, we serialize to JSON and then convert back
-    data = serialize('json', (instance, ), fields = fields)
+    # Mute signals here so the serializer doesn't trigger another instance and cause a loop
+    with mute_signals_for(instance.__class__, True):
+        # In order to get everything in the correct format, we serialize to JSON and then convert back
+        data = serialize('json', (instance, ), fields = fields)
     return json.loads(data)[0]['fields']
 
 
@@ -84,6 +116,7 @@ def _instance_diff(instance, created = False):
     }
 
 
+@mutable_signal_receiver
 def post_init_receiver(sender, instance, **kwargs):
     """
     Handles the post_init signal for tracked models.
@@ -117,6 +150,7 @@ def post_save_receiver(sender, instance, created, **kwargs):
         )
 
 
+@mutable_signal_receiver
 def m2m_changed_receiver(sender, instance, action, reverse, model, pk_set, **kwargs):
     """
     Handles the m2m_changed signal by saving an update event for tracked instances.
