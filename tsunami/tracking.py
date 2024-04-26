@@ -56,9 +56,16 @@ def mutable_signal_receiver(func):
 @contextlib.contextmanager
 def mute_signals_for(instance, sigs):
     """
-    Context manager to skip signals for @instance (django model).
-
-    @sigs can be True to skip all signals or list of specified signals like [post_delete, post_save]
+    Context manager to mute any decorated signals which run within.
+    
+    Within this context handler, signals decorated with mutable_signal_receiver (see above)
+    for the instance (django model class) given will be muted.
+    
+    Only signals which have been decorated will be prevented.
+    
+    The second argument, sigs, allows you to choose which decorated signals to mute.
+    If True, all decorated signals will be muted. Otherwise, provide a list of signals to mute,
+    like [post_delete, post_save]
     """
     try:
         yield setattr(instance, app_settings.MUTE_SIGNALS_ATTR, sigs)
