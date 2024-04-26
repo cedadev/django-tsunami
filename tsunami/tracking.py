@@ -101,7 +101,8 @@ def _instance_as_dict(instance, fields = None):
             for f in instance._meta.get_fields()
             if f.concrete and not f.many_to_many
         )
-    # Mute signals here so the serializer doesn't trigger another instance and cause a loop
+    # Mute signals here so the serializer doesn't trigger recursive calling of the signals.
+    # Note that only signals decorated with @mutable_signal_receiver are muted.
     with mute_signals_for(instance.__class__, True):
         # In order to get everything in the correct format, we serialize to JSON and then convert back
         data = serialize('json', (instance, ), fields = fields)
