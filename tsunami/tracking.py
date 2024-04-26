@@ -36,6 +36,10 @@ def suspend():
 def mutable_signal_receiver(func):
     """
     Decorator for signals to allow them to be skipped by setting the attr MUTE_SIGNALS_ATTR on an instance.
+    
+    Decorate any signal functions which you wish to be able to turn off using this decorator. Then you can use
+    the matching mute_signals_for context handler to mute the signals. Only decorated signals will be muted,
+    other signals will run as normal.
     """
     @functools.wraps(func)
     def wrapper(sender, instance, signal, **kwargs):
